@@ -1,0 +1,5 @@
+outs:
+- md5: f5b33f98ecf52911a1da612e53cd4de5
+  size: 14900116
+  hash: md5
+  path: sentiment_analysis_data.parquet
