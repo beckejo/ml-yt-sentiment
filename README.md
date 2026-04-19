@@ -73,8 +73,10 @@ python models.py
 Start the MLflow UI to compare model runs, review F1 scores, and access the registered model:
 
 ```bash
-mlflow ui
+.venv\Scripts\python.exe -m mlflow ui --backend-store-uri "sqlite:///mlflow.db" --host 127.0.0.1 --port 5000
 ```
+
+Run this command from the project root so the relative `sqlite:///mlflow.db` path resolves to this repository's tracking database.
 
 ## Model Comparison
 
