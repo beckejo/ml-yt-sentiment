@@ -25,8 +25,21 @@ The system includes:
 - Julie Cella
 - Christian Dinevski
 
-## How to Run
+## Project Structure
+The repository is organized as follows to support a full DataOps and ModelOps workflow:
+ml-yt-sentiment/
+│── data_pipeline.py # Data ingestion and validation pipeline
+│── sentiment_analysis_data.parquet # Processed dataset (DVC tracked)
+│── modeling.py # Model training and evaluation
+│── fastapi_app.py # API for serving predictions
+│── streamlit_app.py # Frontend UI for interaction
+│── mlflow.db # MLflow tracking database
+│── README.md # Project documentation
+│── requirements.txt # Python dependencies
 
+This structure separates data ingestion, model training, and deployment components, making the system modular and easier to maintain.
+
+## How to Run
 Follow these steps to run the project locally.
 
 ### 1. Install Dependencies
