@@ -1,0 +1,23 @@
+artifact_path: file:///C:/Users/jaycb/OneDrive/The Book Bag/ML Design/ml-yt-sentiment/mlruns/0/models/m-6cf3ba6774d5426e8ac487c167844dea/artifacts
+flavors:
+  lightgbm:
+    code: null
+    data: model.pkl
+    lgb_version: 4.6.0
+    model_class: lightgbm.sklearn.LGBMClassifier
+    serialization_format: cloudpickle
+    skops_trusted_types: null
+  python_function:
+    data: model.pkl
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.lightgbm
+    python_version: 3.11.9
+mlflow_version: 3.11.1
+model_id: m-6cf3ba6774d5426e8ac487c167844dea
+model_size_bytes: 735838
+model_uuid: m-6cf3ba6774d5426e8ac487c167844dea
+prompts: null
+run_id: b121bf51e54b466793a554e9dfff774c
+utc_time_created: '2026-04-11 15:35:24.105751'

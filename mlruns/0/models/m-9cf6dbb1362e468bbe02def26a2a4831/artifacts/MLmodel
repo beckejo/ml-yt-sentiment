@@ -1,0 +1,22 @@
+artifact_path: file:///C:/Users/jaycb/OneDrive/The Book Bag/ML Design/ml-yt-sentiment/mlruns/0/models/m-9cf6dbb1362e468bbe02def26a2a4831/artifacts
+flavors:
+  python_function:
+    data: model.ubj
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.xgboost
+    python_version: 3.11.9
+  xgboost:
+    code: null
+    data: model.ubj
+    model_class: xgboost.sklearn.XGBClassifier
+    model_format: ubj
+    xgb_version: 3.2.0
+mlflow_version: 3.11.1
+model_id: m-9cf6dbb1362e468bbe02def26a2a4831
+model_size_bytes: 839579
+model_uuid: m-9cf6dbb1362e468bbe02def26a2a4831
+prompts: null
+run_id: 40443a02d67542a9a3c2ff9c87cdc368
+utc_time_created: '2026-04-11 15:35:17.009650'
