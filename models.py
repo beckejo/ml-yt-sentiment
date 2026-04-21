@@ -31,9 +31,9 @@ print(f"MLflow tracking URI: {TRACKING_URI}")
 # 1. Load the dataset
 # ---------------------------------------------------
 
-#df = pd.read_csv("YoutubeCommentsDataSet.csv")  # rename if needed
-#df.columns = ["comment", "sentiment"]  # ensure correct names
-#df = pd.read_parquet('sentiment_analysis_data_20260410.parquet')
+# df = pd.read_csv("YoutubeCommentsDataSet.csv")  # rename if needed
+# df.columns = ["comment", "sentiment"]  # ensure correct names
+# df = pd.read_parquet('sentiment_analysis_data_20260410.parquet')
 df = pd.read_parquet('sentiment_analysis_data.parquet')
 df = df[['video_id', 'clean_comment', 'sentiment']]
 
@@ -49,11 +49,11 @@ X_train, X_test, y_train, y_test = train_test_split(
 )
 
 # ---------------------------------------------------
-# 3. TF‑IDF vectorization
+# 3. TF-IDF vectorization
 # ---------------------------------------------------
 tfidf = TfidfVectorizer(
     max_features=5000,
-    ngram_range=(1,2),
+    ngram_range=(1, 2),
     stop_words="english"
 )
 
@@ -140,7 +140,7 @@ with mlflow.start_run(run_name="LinearSVC") as run:
 
 result_df = pd.DataFrame(run_results).sort_values(by='f1_score', ascending=False)
 
-result_df
+print(result_df)
 
 selected_model = result_df.iloc[0]
 
