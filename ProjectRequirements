@@ -1,0 +1,59 @@
+Project Overview The objective is to build an end-to-end Machine Learning system that addresses content creators' inability to derive actionable sentiment from massive volumes of unstructured YouTube comments
+. The system will automatically classify comments as positive, neutral, or negative, allowing creators to filter through noise and understand true audience sentiment
+.
+1. DataOps: Ingestion, Processing, and Validation
+The data pipeline must handle the extraction, cleaning, and strict validation of data to ensure reproducibility before it reaches the model training phase.
+Data Ingestion: The pipeline must use the YouTube Data API v3 to pull raw comment text and structured engagement metrics (views, likes, comment counts) via the commentThreads and videos.list endpoints
+. Because the YouTube API has strict daily quota limits that restrict training volume, the script must also support ingesting a supplementary Reddit sentiment analysis dataset to train the bulk of the initial model
+.
+Data Processing: Raw text must be normalized. The text cleaning function must convert all text to lowercase, remove URLs using regex, strip out punctuation and numbers, and normalize whitespace
+. The target variable (sentiment) needs to be engineered by calculating "likes per 100 views" and bucketing it into three distinct classes: positive, neutral, and negative
+.
+Data Validation: The pipeline must integrate Great Expectations to run an automated validation suite on the cleaned data
+. The expectations must verify that all required columns exist (e.g., video_id, clean_comment, sentiment), enforce correct data types (e.g., strings for comments, integers for metrics), and ensure there are no null values in critical fields
+.
+Data Versioning: The final validated dataset must be exported as a sentiment_analysis_data.parquet file for efficient storage
+. The codebase must use Data Version Control (DVC) to track this dataset, maintaining reproducibility while keeping the heavy data file out of the Git history
+.
+2. ModelOps: Model Development & Experiment Tracking
+The training scripts must evaluate multiple algorithms, bundle the preprocessing logic with the model, and track all experiments systematically.
+Pipeline Architecture: The script must construct an sklearn.pipeline.Pipeline that bundles feature extraction and the classifier together. The text feature extraction must use a TfidfVectorizer configured for a maximum of 5,000 features, English stop words, and bigrams (ngram_range=(1,2))
+.
+Model Training: The script must train and evaluate an XGBoost classifier, a LightGBM classifier, and a LinearSVC model on the TF-IDF features
+. The training logic should anticipate class imbalance and address it using techniques like SMOTE or class-weight adjustments
+.
+Experiment Tracking: MLflow must be used to track every experiment run. Each model's training process must be wrapped in its own mlflow.start_run() block
+. The script must log all hyperparameters (e.g., learning_rate, max_depth, n_estimators), evaluation metrics (Weighted F1 Score, Precision, Recall), and the serialized model artifacts
+.
+Model Registry: Once all models are trained, the script must programmatically compare their F1 scores, select the top-performing champion model, and push it to the MLflow Model Registry under the specific name YouTube_Sentiment_Champion
+.
+3. DevOps: Backend Deployment & Containerization
+The system must expose the champion model for inference using a containerized backend API.
+FastAPI Backend: A FastAPI application must be developed to serve the model
+. The API must automatically connect to the local MLflow setup and use mlflow.pyfunc.load_model() to retrieve the latest version of the YouTube_Sentiment_Champion model directly from the registry
+.
+API Endpoints: The API must expose two specific POST endpoints: /predict for real-time inference on a single JSON payload, and /predict_batch to handle multiple inputs simultaneously
+.
+Docker Orchestration: Copilot must write Dockerfiles for the applications
+. A docker-compose.yml file is required to spin up the FastAPI backend, the Streamlit frontend, and the MLflow instance simultaneously
+. The compose file must include volume mounts so the FastAPI container can access the local MLflow experiment directory
+.
+4. Frontend Integration: Streamlit App
+We need a user-friendly web interface that business stakeholders and content creators can use to interact with the model without writing code
+.
+User Interface Components: The Streamlit app must provide a text box allowing users to manually paste raw YouTube comments for real-time predictions
+. It must also include a file upload feature that allows users to upload a CSV of comments for batch processing
+.
+API Integration: The Streamlit frontend must not contain any model weights or run the predictions locally. Instead, it must act as a pure frontend, capturing the user input and using the requests library to send HTTP POST payloads to the FastAPI backend's /predict and /predict_batch endpoints
+.
+Result Display: Once the API returns the results, the Streamlit app must display the predicted sentiment classifications to the user in a clear, structured format
+.
+5. Model Monitoring
+The system needs to track inputs and predictions in production to detect any degradation in model quality over time
+.
+Data Logging: The FastAPI application must include a logging function that captures incoming request features, the model's generated predictions, error statuses, and a timestamp
+. These logs must be appended to a local prediction_logs.csv file every time an endpoint is hit
+.
+Drift Detection: The codebase must integrate Evidently AI to generate visual HTML reports analyzing the production logs against the baseline training dataset
+. Copilot should set up scripts to utilize the DataDriftPreset to monitor shifts in the input feature distributions, and the TargetDriftPreset to monitor Concept Drift (changes in the relationship between the features and the target sentiment)
+.

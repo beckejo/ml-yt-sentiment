@@ -1,0 +1,36 @@
+Project Context for Copilot The goal of this script is to train a supervised machine learning classifier that categorizes the sentiment of unstructured text (YouTube comments) into three classes: negative (0), neutral (1), and positive (2). The system must utilize MLOps best practices, specifically addressing training-serving skew, class imbalance, and strict experiment tracking using MLflow.
+1. Pipeline Architecture & Feature Engineering
+To eliminate the training-serving skew discovered in our MVP, the feature extraction and classification steps must be bundled.
+Pipeline Construction: You must use sklearn.pipeline.Pipeline (or imblearn.pipeline.Pipeline if implementing SMOTE) to combine the vectorizer and the classifier into a single deployable artifact.
+Text Vectorization: The first step in the pipeline must be a TfidfVectorizer configured with max_features=5000, ngram_range=(1,2), and stop_words="english"
+.
+2. Training Strategy & Class Imbalance
+We are dealing with imperfect proxy labels engineered from YouTube video metrics, which introduces the risk of Proxy Over-optimization where the model learns to maximize a proxy rather than the true objective
+.
+Data Sourcing: The script should be configured to primarily train on our supplementary Reddit sentiment dataset, which contains verified ground-truth labels, rather than exclusively relying on the engineered YouTube "likes per 100 views" target variable.
+Algorithm Selection: The script must train and evaluate three different classifiers: XGBClassifier, LGBMClassifier, and LinearSVC
+.
+Class Imbalance Handling: Sentiment data frequently suffers from severe class imbalance, which can skew precision and recall if ignored
+. The training loop must actively handle this by integrating SMOTE (Synthetic Minority Over-sampling Technique) or by dynamically adjusting class weights within the model parameters
+.
+3. ModelOps: Experiment Tracking with MLflow
+All model training must be systematically tracked to ensure reproducibility and proper performance comparison.
+Run Isolation: Each model's training process must be wrapped in its own mlflow.start_run(run_name="Model_Name") block
+.
+Parameter Logging: You must log all relevant hyperparameters for each model, such as learning_rate, max_depth, n_estimators, and objective
+.
+Artifact Logging: Upon completion of training, the entire fitted Pipeline object (containing both the TfidfVectorizer and the classifier) must be serialized and logged to MLflow as the model artifact.
+4. Technical Evaluation Metrics
+The script must evaluate the model's performance on a holdout test set to ensure it generalizes well to unseen data.
+Metric Calculation: Compute and log the Weighted F1 Score, Precision, and Recall for each experiment
+. The primary metric for comparison will be the Weighted F1 score
+.
+True Evaluation Framework: The script must be designed to evaluate the pipeline against a small, manually hand-labeled test set of actual YouTube comments. Evaluating solely against our engineered proxy labels only tests how well the model guesses a video's overall like-to-view ratio, not the actual text sentiment. As noted in industry case studies, offline model performance metrics like F1 or RMSE are merely a "health check" to ensure the algorithm functions mathematically; true value requires robust evaluation against accurate ground truth
+.
+5. Model Selection & Registry
+Once the three pipelines have been trained and evaluated, the script must automate the staging of the best model.
+Champion Selection: Programmatically sort the tracked runs by their Weighted F1 Score in descending order and isolate the top-performing model
+.
+Registry Push: Push the winning pipeline artifact to the local MLflow Model Registry under the exact name YouTube_Sentiment_Champion
+. Ensure the code assigns an alias of champion to this specific version to make API retrieval easier
+.

@@ -1,108 +1,140 @@
 # ML-Powered YouTube Sentiment Analysis System
 
-An end-to-end machine learning pipeline that classifies YouTube comments as **positive**, **neutral**, or **negative**.
+This repository implements an end-to-end DataOps, ModelOps, DevOps, and monitoring workflow to classify comments into negative, neutral, and positive sentiment.
 
-## Overview
+## What Is Implemented
 
-As YouTube channels grow, it becomes impossible to manually review thousands of comments to understand audience feedback. Viral videos often attract noise, self-promotion, and trolling, which can bury meaningful criticism and sentiment.
+- Data ingestion from YouTube Data API v3
+- Supplementary Reddit dataset ingestion from local CSV/parquet path
+- Text normalization and sentiment target engineering
+- Great Expectations dataset validation
+- Parquet export and DVC tracking support
+- Multi-model training with sklearn Pipelines
+- MLflow run tracking and champion model registration
+- FastAPI inference API with single and batch endpoints
+- Streamlit frontend that calls API endpoints via HTTP
+- Prediction logging and Evidently drift report generation
+- Dockerfiles and docker-compose orchestration
 
-This project addresses that problem with a machine learning system that processes unstructured text data using TF-IDF vectorization with bigrams and evaluates multiple models, including LightGBM, XGBoost, and LinearSVC.
+## Core Files
 
-The system includes:
+- data_pipeline.py
+- dataops_utils.py
+- models.py
+- fastapi_app.py
+- streamlit_app.py
+- monitoring/generate_drift_report.py
+- app_config.py
+- docker-compose.yml
+- requirements.txt
 
-- Data ingestion through the YouTube Data API v3
-- Data validation with Great Expectations
-- Data versioning with Data Version Control (DVC)
-- Experiment tracking and model registration with MLflow
+## Environment Setup
 
-## Team Members
-
-**Group 7**
-
-- Precious Adugyamfi
-- Shelby Altman-Metzler
-- Jay Becker
-- Julie Cella
-- Christian Dinevski
-
-## Project Structure
-The repository is organized as follows to support a full DataOps and ModelOps workflow:
-ml-yt-sentiment/
-│── data_pipeline.py # Data ingestion and validation pipeline
-│── sentiment_analysis_data.parquet # Processed dataset (DVC tracked)
-│── modeling.py # Model training and evaluation
-│── fastapi_app.py # API for serving predictions
-│── streamlit_app.py # Frontend UI for interaction
-│── mlflow.db # MLflow tracking database
-│── README.md # Project documentation
-│── requirements.txt # Python dependencies
-
-This structure separates data ingestion, model training, and deployment components, making the system modular and easier to maintain.
-
-## How to Run
-Follow these steps to run the project locally.
-
-### 1. Install Dependencies
-
-Install the required Python packages:
+1. Create and activate a virtual environment.
+2. Install dependencies.
 
 ```bash
-pip install pandas scikit-learn xgboost lightgbm dvc great_expectations mlflow fastapi streamlit uvicorn
+pip install -r requirements.txt
 ```
 
-### 2. Run the Data Pipeline
+3. Create a local environment file from the template and fill values.
 
-Execute the ingestion and validation pipeline:
+```bash
+copy .env.example .env
+```
+
+Required values:
+
+- YOUTUBE_VIDEOS_API_KEY
+- YOUTUBE_COMMENTS_API_KEY
+- YOUTUBE_STATS_API_KEY
+- REDDIT_DATASET_PATH (optional but recommended)
+- HAND_LABELED_TEST_PATH (required for champion promotion)
+
+Optional gate controls:
+
+- PROMOTION_METRIC (default: macro_f1)
+- MIN_HAND_LABELED_MACRO_F1 (default: 0.65)
+- MIN_NEGATIVE_RECALL (default: 0.55)
+- MIN_CLASS_RATIO (default: 0.10)
+- REQUIRE_PROBABILISTIC_CHAMPION (default: true)
+- MAX_BATCH_SIZE (default: 1000)
+
+## End-to-End Run Order
+
+1. Build and validate dataset.
 
 ```bash
 python data_pipeline.py
 ```
 
-Note: You must have active YouTube Data API v3 keys configured in the script to access the `commentsThreads` and `videos.list` endpoints.
-
-This step pulls video statistics and comments, validates the schema, checks for null values, and verifies data types using Great Expectations. The cleaned dataset is saved as `sentiment_analysis_data.parquet`.
-
-### 3. Track Data with DVC
-
-Initialize DVC and track the dataset snapshot for reproducibility:
+2. Track parquet with DVC.
 
 ```bash
-dvc init
 dvc add sentiment_analysis_data.parquet
 ```
 
-Be sure to commit the generated `.dvc` file to Git.
-
-### 4. Train Models and Track Experiments
-
-Run the modeling script to train the baseline models and identify the champion model:
+3. Train models, evaluate against holdout and hand-labeled sets, and register the champion model in MLflow.
 
 ```bash
 python models.py
 ```
 
-### 5. View the MLflow Dashboard
+Promotion policy:
 
-Start the MLflow UI to compare model runs, review F1 scores, and access the registered model:
+- Selection metric is hand-labeled macro F1
+- Champion must pass minimum hand-labeled macro F1 and negative-recall thresholds
+- Champion must be probabilistic (LightGBM or XGBoost) when `REQUIRE_PROBABILISTIC_CHAMPION=true`
+
+The winner is registered as `YouTube_Sentiment_Champion` and assigned the `champion` alias for serving.
+
+4. Start MLflow UI.
 
 ```bash
-.venv\Scripts\python.exe -m mlflow ui --backend-store-uri "sqlite:///mlflow.db" --host 127.0.0.1 --port 5000
+python -m mlflow ui --backend-store-uri sqlite:///mlflow.db --host 127.0.0.1 --port 5000
 ```
 
-Run this command from the project root so the relative `sqlite:///mlflow.db` path resolves to this repository's tracking database.
+5. Start FastAPI backend.
 
-## Model Comparison
+```bash
+uvicorn fastapi_app:app --host 0.0.0.0 --port 8000
+```
 
-The project compares:
+6. Start Streamlit frontend.
 
-- XGBoost
-- LightGBM
-- LinearSVC
+```bash
+streamlit run streamlit_app.py
+```
 
-## DataOps and ModelOps Flow
+7. Generate drift reports after inference logs are created.
 
-1. Ingest YouTube comments and video metadata.
-2. Validate the dataset with Great Expectations.
-3. Version the cleaned data with DVC.
-4. Train and evaluate candidate models.
-5. Track metrics and register the best-performing model in MLflow.
+```bash
+python monitoring/generate_drift_report.py
+```
+
+Reports are generated in monitoring/reports.
+
+## API Contract
+
+- POST /predict
+	- Body: {"comment": "text"}
+	- Returns: prediction_class, prediction_label, confidence
+
+- POST /predict_batch
+	- Body: {"comments": ["text1", "text2"]}
+	- Returns: results array with prediction_class, prediction_label, confidence
+	- Enforces MAX_BATCH_SIZE guardrail
+
+## Docker Compose
+
+Run all services (MLflow, FastAPI, Streamlit):
+
+```bash
+docker-compose up --build
+```
+
+Exposed ports:
+
+- MLflow UI: 5000
+- FastAPI: 8000
+- Streamlit: 8501

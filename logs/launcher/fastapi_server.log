@@ -1,0 +1,19 @@
+INFO:     Started server process [41904]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+ERROR:    [Errno 10048] error while attempting to bind on address ('127.0.0.1', 8001): only one usage of each socket address (protocol/network address/port) is normally permitted
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Started server process [70784]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)
+INFO:     127.0.0.1:59800 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54620 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54652 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55165 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56600 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56618 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56639 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52274 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56263 - "POST /predict_batch HTTP/1.1" 200 OK

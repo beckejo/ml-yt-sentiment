@@ -1,146 +1,256 @@
-import great_expectations as gx
-import os
-import numpy as np
-import pandas as pd
-import unicodedata
-import warnings
-import re
+from __future__ import annotations
+
 from datetime import datetime
+from pathlib import Path
+import re
 
-from dataops_utils import (
-    ingest_video_ids,
-    ingest_video_stats,
-    get_all_comments_for_video,
-    ingest_comments_for_videos
-)
+import great_expectations as gx
+import pandas as pd
 
-# Define API Keys
-VIDEOS_API_KEY = 'AIzaSyAK7LjAPNQkvoTZqcpd1zTllbITBIBe5kw'
-COMMENTS_API_KEY = 'AIzaSyBmiNrgUJsUYDrd1XzPP6EEfWJfR1QBt_A'
-STATS_API_KEY = 'AIzaSyA0GVVhtbbPrR9hiqiTxRiP8YZ8HwChedU'
+from app_config import get_settings
+from dataops_utils import ingest_comments_for_videos, ingest_video_ids, ingest_video_stats
 
-# Define URL
-BASE_URL = "https://www.googleapis.com/youtube/v3"
 
-# Search for videos and pull list of video_ids
-video_ids = ingest_video_ids(VIDEOS_API_KEY)
-video_ids = pd.DataFrame(video_ids)
-video_ids_list = list(video_ids['video_id'])
+REQUIRED_COLUMNS = [
+    "video_id",
+    "views",
+    "likes",
+    "comments",
+    "likes_per_100_views",
+    "sentiment",
+    "comment",
+    "clean_comment",
+]
 
-# Serach for video stats from videos returned in video search
-stats = ingest_video_stats(video_ids_list, STATS_API_KEY)
-stats = pd.DataFrame(stats)
 
-# Convert datatypes
-stats['views'] = stats['views'].astype('Int64')
-stats['likes'] = stats['likes'].astype('Int64')
-stats['comments'] = stats['comments'].astype('Int64')
-
-# Only include videos with more then 10 comments
-stats = stats[stats['comments'] >= 10]
-
-# Create target variable: likes per 100 views
-# Bucket that into 3 groups based on percentiles as sentiment outcome
-stats['likes_per_100_views'] = round(stats['likes'] / stats['views'] * 100, 3)
-stats = stats[stats['likes_per_100_views'].notna()]
-stats['sentiment'] = pd.qcut(stats['likes_per_100_views'], q = 3, labels = [0, 1, 2])
-stats['sentiment'] = stats['sentiment'].astype('Int64')
-
-# Create distinct list of filtered video ids to use for comment search
-videos_id_for_comments = list(stats['video_id'])
-
-# Ingest video comments
-comments = ingest_comments_for_videos(COMMENTS_API_KEY, videos_id_for_comments)
-
-# Concatenate all comments into one record per video
-comments = comments.groupby('video_id')['comment'].agg(lambda x: ' '.join(x)).reset_index()
-
-# Clean comment text
-def clean_text(text):
+def clean_text(text: str) -> str:
     text = str(text).lower()
-    text = re.sub(r"http\S+", "", text)          # remove URLs
-    text = re.sub(r"[^a-zA-Z\s]", "", text)      # remove punctuation/numbers
-    text = re.sub(r"\s+", " ", text).strip()     # normalize whitespace
+    text = re.sub(r"http\S+", "", text)
+    text = re.sub(r"[^a-zA-Z\s]", "", text)
+    text = re.sub(r"\s+", " ", text).strip()
     return text
 
-comments["clean_comment"] = comments["comment"].apply(clean_text)
 
-# Complete data: join together stats and comments
-complete_data = stats.merge(comments, how = 'inner', on = 'video_id')
+def _map_sentiment(raw_value: object) -> int | None:
+    if pd.isna(raw_value):
+        return None
 
+    if isinstance(raw_value, (int, float)):
+        label = int(raw_value)
+        if label in (0, 1, 2):
+            return label
+        return None
 
-
-# Create Data Context.
-context = gx.get_context()
-
-# Create Data Source, Data Asset, Batch Definition, and Batch.
-data_source = context.data_sources.add_pandas("pandas")
-data_asset = data_source.add_dataframe_asset(name="Youtube video data")
-batch_definition = data_asset.add_batch_definition_whole_dataframe("batch definition")
-batch = batch_definition.get_batch(batch_parameters={"dataframe": complete_data})
-
-
-
-# Create an Expectation Suite
-suite = gx.ExpectationSuite(name="Youtube video data expectations")
-
-# Add the Expectation Suite to the Data Context
-suite = context.suites.add(suite)
-
-# Validate columns exist
-suite.add_expectation(gx.expectations.ExpectColumnToExist(column='video_id'))
-suite.add_expectation(gx.expectations.ExpectColumnToExist(column='views'))
-suite.add_expectation(gx.expectations.ExpectColumnToExist(column='likes'))
-suite.add_expectation(gx.expectations.ExpectColumnToExist(column='comments'))
-suite.add_expectation(gx.expectations.ExpectColumnToExist(column='likes_per_100_views'))
-suite.add_expectation(gx.expectations.ExpectColumnToExist(column='sentiment'))
-suite.add_expectation(gx.expectations.ExpectColumnToExist(column='comment'))
-suite.add_expectation(gx.expectations.ExpectColumnToExist(column='clean_comment'))
-
-# Validate data types
-suite.add_expectation(gx.expectations.ExpectColumnValuesToBeOfType(
-    column='video_id', type_="object"
-    ))
-suite.add_expectation(gx.expectations.ExpectColumnValuesToBeOfType(
-    column='views', type_="int64"
-    ))
-suite.add_expectation(gx.expectations.ExpectColumnValuesToBeOfType(
-    column='likes', type_="int64"
-    ))
-suite.add_expectation(gx.expectations.ExpectColumnValuesToBeOfType(
-    column='comments', type_="int64"
-    ))
-suite.add_expectation(gx.expectations.ExpectColumnValuesToBeOfType(
-    column='likes_per_100_views', type_="float"
-    ))
-suite.add_expectation(gx.expectations.ExpectColumnValuesToBeOfType(
-    column='sentiment', type_="int64"
-    ))
-suite.add_expectation(gx.expectations.ExpectColumnValuesToBeOfType(
-    column='comment', type_="object"
-    ))
-suite.add_expectation(gx.expectations.ExpectColumnValuesToBeOfType(
-    column='clean_comment', type_="object"
-    ))
-
-# Validate no empty values exist
-suite.add_expectation(gx.expectations.ExpectColumnValuesToNotBeNull(column='video_id'))
-suite.add_expectation(gx.expectations.ExpectColumnValuesToNotBeNull(column='views'))
-suite.add_expectation(gx.expectations.ExpectColumnValuesToNotBeNull(column='likes'))
-suite.add_expectation(gx.expectations.ExpectColumnValuesToNotBeNull(column='comments'))
-suite.add_expectation(gx.expectations.ExpectColumnValuesToNotBeNull(column='likes_per_100_views'))
-suite.add_expectation(gx.expectations.ExpectColumnValuesToNotBeNull(column='sentiment'))
-suite.add_expectation(gx.expectations.ExpectColumnValuesToNotBeNull(column='comment'))
-suite.add_expectation(gx.expectations.ExpectColumnValuesToNotBeNull(column='clean_comment'))
-
-# Validate results
-validation_results = batch.validate(suite)
-print(validation_results.success)
+    lookup = {
+        "negative": 0,
+        "neg": 0,
+        "neutral": 1,
+        "neu": 1,
+        "positive": 2,
+        "pos": 2,
+    }
+    return lookup.get(str(raw_value).strip().lower())
 
 
+def load_reddit_dataset(dataset_path: str) -> pd.DataFrame:
+    if not dataset_path:
+        return pd.DataFrame(columns=REQUIRED_COLUMNS + ["source"])
 
-# Write complete data to .csv file. This will likely need to updated in the context
-# of our MLOps framework—i.e. data versioning
-#complete_data_path = f'sentiment_analysis_data_{datetime.today().strftime("%Y%m%d")}.parquet'
-complete_data_path = 'sentiment_analysis_data.parquet'
-complete_data.to_parquet(complete_data_path, index = False)
+    path = Path(dataset_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Reddit dataset path does not exist: {path}")
+
+    if path.suffix.lower() == ".parquet":
+        reddit_df = pd.read_parquet(path)
+    else:
+        reddit_df = pd.read_csv(path)
+
+    comment_column_candidates = ["comment", "clean_comment", "text", "body"]
+    sentiment_column_candidates = ["sentiment", "label", "target"]
+
+    comment_col = next((c for c in comment_column_candidates if c in reddit_df.columns), None)
+    sentiment_col = next((c for c in sentiment_column_candidates if c in reddit_df.columns), None)
+
+    if comment_col is None or sentiment_col is None:
+        raise ValueError(
+            "Reddit dataset must include a comment column (comment/clean_comment/text/body) "
+            "and sentiment column (sentiment/label/target)."
+        )
+
+    out_df = pd.DataFrame()
+    out_df["comment"] = reddit_df[comment_col].astype(str)
+    out_df["clean_comment"] = out_df["comment"].apply(clean_text)
+    out_df["sentiment"] = reddit_df[sentiment_col].apply(_map_sentiment)
+
+    if "likes" in reddit_df.columns:
+        likes_raw = reddit_df["likes"]
+    elif "score" in reddit_df.columns:
+        likes_raw = reddit_df["score"]
+    else:
+        likes_raw = pd.Series([0] * len(reddit_df), index=reddit_df.index)
+
+    if "views" in reddit_df.columns:
+        views_raw = reddit_df["views"]
+    else:
+        views_raw = pd.Series([100] * len(reddit_df), index=reddit_df.index)
+
+    if "comments" in reddit_df.columns:
+        comments_raw = reddit_df["comments"]
+    elif "num_comments" in reddit_df.columns:
+        comments_raw = reddit_df["num_comments"]
+    else:
+        comments_raw = pd.Series([1] * len(reddit_df), index=reddit_df.index)
+
+    likes_series = pd.to_numeric(likes_raw, errors="coerce").fillna(0)
+    views_series = pd.to_numeric(views_raw, errors="coerce").fillna(100)
+    comments_series = pd.to_numeric(comments_raw, errors="coerce").fillna(1)
+
+    out_df["likes"] = likes_series.astype("int64")
+    out_df["views"] = views_series.astype("int64")
+    out_df["comments"] = comments_series.astype("int64")
+    out_df["likes_per_100_views"] = (out_df["likes"] / out_df["views"].replace(0, 1) * 100).round(3)
+    out_df["video_id"] = [f"reddit_{idx}" for idx in out_df.index]
+    out_df["source"] = "reddit"
+
+    out_df = out_df.dropna(subset=["sentiment"])
+    out_df["sentiment"] = out_df["sentiment"].astype("int64")
+    return out_df
+
+
+def build_youtube_dataset() -> pd.DataFrame:
+    settings = get_settings()
+    if not (settings.videos_api_key and settings.comments_api_key and settings.stats_api_key):
+        return pd.DataFrame(columns=REQUIRED_COLUMNS + ["source"])
+
+    video_ids = ingest_video_ids(settings.videos_api_key)
+    if not video_ids:
+        return pd.DataFrame(columns=REQUIRED_COLUMNS + ["source"])
+
+    video_ids_df = pd.DataFrame(video_ids)
+    if video_ids_df.empty or "video_id" not in video_ids_df.columns:
+        return pd.DataFrame(columns=REQUIRED_COLUMNS + ["source"])
+
+    stats = ingest_video_stats(list(video_ids_df["video_id"].astype(str)), settings.stats_api_key)
+    stats_df = pd.DataFrame(stats)
+    if stats_df.empty:
+        return pd.DataFrame(columns=REQUIRED_COLUMNS + ["source"])
+
+    for col in ["views", "likes", "comments"]:
+        stats_df[col] = pd.to_numeric(stats_df[col], errors="coerce")
+
+    stats_df = stats_df.dropna(subset=["video_id", "views", "likes", "comments"])
+    stats_df[["views", "likes", "comments"]] = stats_df[["views", "likes", "comments"]].astype("int64")
+    stats_df = stats_df[stats_df["comments"] >= 10].copy()
+
+    stats_df["likes_per_100_views"] = (stats_df["likes"] / stats_df["views"].replace(0, 1) * 100).round(3)
+    stats_df = stats_df.dropna(subset=["likes_per_100_views"])
+
+    if stats_df["likes_per_100_views"].nunique() < 3:
+        ranked = stats_df["likes_per_100_views"].rank(method="first")
+        stats_df["sentiment"] = pd.qcut(ranked, q=3, labels=[0, 1, 2]).astype("int64")
+    else:
+        stats_df["sentiment"] = pd.qcut(
+            stats_df["likes_per_100_views"],
+            q=3,
+            labels=[0, 1, 2],
+        ).astype("int64")
+
+    comments_df = ingest_comments_for_videos(settings.comments_api_key, list(stats_df["video_id"]))
+    if comments_df.empty:
+        return pd.DataFrame(columns=REQUIRED_COLUMNS + ["source"])
+
+    comments_agg_df = comments_df.groupby("video_id")["comment"].agg(lambda x: " ".join(x)).reset_index()
+    comments_agg_df["clean_comment"] = comments_agg_df["comment"].apply(clean_text)
+
+    merged_df = stats_df.merge(comments_agg_df, how="inner", on="video_id")
+    merged_df["source"] = "youtube"
+    return merged_df
+
+
+def merge_sources(youtube_df: pd.DataFrame, reddit_df: pd.DataFrame) -> pd.DataFrame:
+    frames = [frame for frame in [youtube_df, reddit_df] if frame is not None and not frame.empty]
+    if not frames:
+        raise ValueError("No data available. Provide YouTube API keys and/or a Reddit dataset path.")
+
+    complete_data = pd.concat(frames, ignore_index=True)
+    missing_cols = [col for col in REQUIRED_COLUMNS if col not in complete_data.columns]
+    if missing_cols:
+        raise ValueError(f"Missing required columns before validation: {missing_cols}")
+
+    complete_data["video_id"] = complete_data["video_id"].astype(str)
+    complete_data["comment"] = complete_data["comment"].astype(str)
+    complete_data["clean_comment"] = complete_data["clean_comment"].astype(str)
+
+    for col in ["views", "likes", "comments", "sentiment"]:
+        complete_data[col] = pd.to_numeric(complete_data[col], errors="coerce")
+
+    complete_data["likes_per_100_views"] = pd.to_numeric(complete_data["likes_per_100_views"], errors="coerce")
+    complete_data = complete_data.dropna(subset=REQUIRED_COLUMNS)
+
+    complete_data[["views", "likes", "comments", "sentiment"]] = (
+        complete_data[["views", "likes", "comments", "sentiment"]].astype("int64")
+    )
+    complete_data["likes_per_100_views"] = complete_data["likes_per_100_views"].astype(float)
+    return complete_data
+
+
+def validate_with_great_expectations(complete_data: pd.DataFrame) -> None:
+    context = gx.get_context()
+
+    try:
+        data_source = context.data_sources.get("pandas")
+    except Exception:
+        data_source = context.data_sources.add_pandas("pandas")
+
+    batch_suffix = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    data_asset = data_source.add_dataframe_asset(name=f"youtube_video_data_{batch_suffix}")
+    batch_definition = data_asset.add_batch_definition_whole_dataframe("batch_definition")
+    batch = batch_definition.get_batch(batch_parameters={"dataframe": complete_data})
+
+    suite = gx.ExpectationSuite(name=f"youtube_video_data_expectations_{batch_suffix}")
+    suite = context.suites.add(suite)
+
+    for col in REQUIRED_COLUMNS:
+        suite.add_expectation(gx.expectations.ExpectColumnToExist(column=col))
+
+    type_expectations = {
+        "video_id": "object",
+        "views": "int64",
+        "likes": "int64",
+        "comments": "int64",
+        "likes_per_100_views": "float",
+        "sentiment": "int64",
+        "comment": "object",
+        "clean_comment": "object",
+    }
+    for col, dtype in type_expectations.items():
+        suite.add_expectation(gx.expectations.ExpectColumnValuesToBeOfType(column=col, type_=dtype))
+
+    for col in REQUIRED_COLUMNS:
+        suite.add_expectation(gx.expectations.ExpectColumnValuesToNotBeNull(column=col))
+
+    validation_results = batch.validate(suite)
+    if not validation_results.success:
+        raise ValueError("Great Expectations validation failed for processed dataset.")
+
+
+def persist_dataset(complete_data: pd.DataFrame, output_path: str) -> None:
+    complete_data.to_parquet(output_path, index=False)
+
+
+def main() -> None:
+    settings = get_settings()
+
+    youtube_df = build_youtube_dataset()
+    reddit_df = load_reddit_dataset(settings.reddit_dataset_path)
+    complete_data = merge_sources(youtube_df, reddit_df)
+
+    validate_with_great_expectations(complete_data)
+    persist_dataset(complete_data, settings.data_output_path)
+
+    print(f"Dataset rows: {len(complete_data)}")
+    print(f"Saved dataset to: {settings.data_output_path}")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,39 @@
+services:
+  mlflow:
+    image: python:3.11-slim
+    working_dir: /app
+    command: >
+      sh -c "pip install --no-cache-dir mlflow &&
+             mlflow ui --backend-store-uri sqlite:///mlflow.db --host 0.0.0.0 --port 5000"
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./:/app
+
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile.fastapi
+    environment:
+      MLFLOW_TRACKING_URI: sqlite:///mlflow.db
+      MLFLOW_REGISTRY_URI: sqlite:///mlflow.db
+      PREDICTION_LOGS_PATH: prediction_logs.csv
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mlflow
+    volumes:
+      - ./:/app
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    environment:
+      FASTAPI_BASE_URL: http://fastapi:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      - fastapi
+    volumes:
+      - ./:/app
