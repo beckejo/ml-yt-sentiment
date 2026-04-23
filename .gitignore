@@ -1,1 +1,4 @@
 /sentiment_analysis_data.parquet
+.env
+prediction_logs.csv
+monitoring/reports/

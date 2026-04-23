@@ -1,0 +1,53 @@
+INFO:     Started server process [41904]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+ERROR:    [Errno 10048] error while attempting to bind on address ('127.0.0.1', 8001): only one usage of each socket address (protocol/network address/port) is normally permitted
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Started server process [70784]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)
+INFO:     127.0.0.1:59800 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54620 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54652 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55165 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56600 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56618 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56639 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52274 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56263 - "POST /predict_batch HTTP/1.1" 200 OK
+INFO:     Started server process [67512]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)
+INFO:     127.0.0.1:58489 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58489 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58489 - "GET /health HTTP/1.1" 200 OK
+INFO:     Started server process [64740]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)
+INFO:     127.0.0.1:61997 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61997 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56989 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49899 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49899 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64250 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49804 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61838 - "POST /predict_batch HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58683 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58683 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52892 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58609 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59698 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55895 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55914 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55929 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55947 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63304 - "POST /predict_batch HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51268 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53846 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53864 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60405 - "POST /predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51295 - "POST /predict_batch HTTP/1.1" 200 OK
